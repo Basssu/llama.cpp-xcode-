@@ -14,34 +14,28 @@ var sources = [
     "ggml/src/ggml-backend.cpp",
     "ggml/src/ggml-quants.c",
     "ggml/src/ggml-aarch64.c",
+    "ggml/src/ggml-metal.m", // 常にMetalコードを入れる
 ]
 
-var resources: [Resource] = []
-var linkerSettings: [LinkerSetting] = []
-var cSettings: [CSetting] =  [
+var resources: [Resource] = [
+    .process("ggml/src/ggml-metal.metal") // Metalのシェーダファイルも常にリソースにする
+]
+
+var linkerSettings: [LinkerSetting] = [
+    .linkedFramework("Accelerate"), // 常にAccelerate.frameworkリンク
+    .linkedFramework("Metal"),      // Metal.frameworkもリンクしておくとより安全！
+    .linkedFramework("MetalKit")
+]
+
+var cSettings: [CSetting] = [
     .unsafeFlags(["-Wno-shorten-64-to-32", "-O3", "-DNDEBUG"]),
     .unsafeFlags(["-fno-objc-arc"]),
-    // NOTE: NEW_LAPACK will required iOS version 16.4+
-    // We should consider add this in the future when we drop support for iOS 14
-    // (ref: ref: https://developer.apple.com/documentation/accelerate/1513264-cblas_sgemm?language=objc)
-    // .define("ACCELERATE_NEW_LAPACK"),
-    // .define("ACCELERATE_LAPACK_ILP64")
+    .define("GGML_USE_ACCELERATE"), // Accelerateを常に有効
+    .define("GGML_USE_METAL"),      // Metalを常に有効
 ]
 
-#if canImport(Darwin)
-sources.append("ggml/src/ggml-metal.m")
-resources.append(.process("ggml/src/ggml-metal.metal"))
-linkerSettings.append(.linkedFramework("Accelerate"))
-cSettings.append(
-    contentsOf: [
-        .define("GGML_USE_ACCELERATE"),
-        .define("GGML_USE_METAL")
-    ]
-)
-#endif
-
 #if os(Linux)
-    cSettings.append(.define("_GNU_SOURCE"))
+cSettings.append(.define("_GNU_SOURCE"))
 #endif
 
 let package = Package(
@@ -60,13 +54,13 @@ let package = Package(
             name: "llama",
             path: ".",
             exclude: [
-               "cmake",
-               "examples",
-               "scripts",
-               "models",
-               "tests",
-               "CMakeLists.txt",
-               "Makefile"
+                "cmake",
+                "examples",
+                "scripts",
+                "models",
+                "tests",
+                "CMakeLists.txt",
+                "Makefile"
             ],
             sources: sources,
             resources: resources,
