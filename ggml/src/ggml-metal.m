@@ -468,7 +468,7 @@ struct lm_ggml_backend_metal_context {
     id<MTLCommandBuffer> command_buffers[LM_GGML_METAL_MAX_COMMAND_BUFFERS + 1];
 
     // abort lm_ggml_metal_graph_compute if callback returns true
-    lm_ggml_abort_callback abort_callback;
+    ggml_abort_callback abort_callback;
     void *              abort_callback_data;
 };
 
@@ -637,7 +637,7 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
     return metal_library;
 }
 
-static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend_dev_t dev) {
+static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(ggml_backend_dev_t dev) {
     // LM_GGML_LOG_INFO("%s: allocating\n", __func__);
 
 #if TARGET_OS_OSX && !LM_GGML_METAL_NDEBUG
@@ -4936,7 +4936,7 @@ static lm_ggml_guid_t lm_ggml_backend_metal_guid(void) {
 
 // TODO: remove in the future
 lm_ggml_backend_t lm_ggml_backend_metal_init(void) {
-    lm_ggml_backend_dev_t dev = lm_ggml_backend_reg_dev_get(lm_ggml_backend_metal_reg(), 0);
+    ggml_backend_dev_t dev = lm_ggml_backend_reg_dev_get(lm_ggml_backend_metal_reg(), 0);
 
     struct lm_ggml_backend_metal_context * ctx = lm_ggml_metal_init(dev);
     if (ctx == NULL) {
@@ -4962,7 +4962,7 @@ bool lm_ggml_backend_is_metal(lm_ggml_backend_t backend) {
     return backend != NULL && lm_ggml_guid_matches(backend->guid, lm_ggml_backend_metal_guid());
 }
 
-void lm_ggml_backend_metal_set_abort_callback(lm_ggml_backend_t backend, lm_ggml_abort_callback abort_callback, void * user_data) {
+void lm_ggml_backend_metal_set_abort_callback(lm_ggml_backend_t backend, ggml_abort_callback abort_callback, void * user_data) {
     LM_GGML_ASSERT(lm_ggml_backend_is_metal(backend));
 
     struct lm_ggml_backend_metal_context * ctx = (struct lm_ggml_backend_metal_context *)backend->context;
@@ -4988,13 +4988,13 @@ void lm_ggml_backend_metal_capture_next_compute(lm_ggml_backend_t backend) {
 
 // backend device
 
-static const char * lm_ggml_backend_metal_device_get_name(lm_ggml_backend_dev_t dev) {
+static const char * lm_ggml_backend_metal_device_get_name(ggml_backend_dev_t dev) {
     return "Metal";
 
     LM_GGML_UNUSED(dev);
 }
 
-static const char * lm_ggml_backend_metal_device_get_description(lm_ggml_backend_dev_t dev) {
+static const char * lm_ggml_backend_metal_device_get_description(ggml_backend_dev_t dev) {
     // acq/rel just to populate ctx->name in case it hasn't been done yet
     struct lm_ggml_backend_metal_device_context * ctx_dev = (struct lm_ggml_backend_metal_device_context *)dev->context;
     lm_ggml_backend_metal_device_acq(ctx_dev);
@@ -5003,7 +5003,7 @@ static const char * lm_ggml_backend_metal_device_get_description(lm_ggml_backend
     return ctx_dev->name;
 }
 
-static void lm_ggml_backend_metal_device_get_memory(lm_ggml_backend_dev_t dev, size_t * free, size_t * total) {
+static void lm_ggml_backend_metal_device_get_memory(ggml_backend_dev_t dev, size_t * free, size_t * total) {
     if (@available(macOS 10.12, iOS 16.0, *)) {
         struct lm_ggml_backend_metal_device_context * ctx_dev = (struct lm_ggml_backend_metal_device_context *)dev->context;
         id<MTLDevice> device = lm_ggml_backend_metal_device_acq(ctx_dev);
@@ -5018,13 +5018,13 @@ static void lm_ggml_backend_metal_device_get_memory(lm_ggml_backend_dev_t dev, s
     }
 }
 
-static enum lm_ggml_backend_dev_type lm_ggml_backend_metal_device_get_type(lm_ggml_backend_dev_t dev) {
+static enum ggml_backend_dev_type lm_ggml_backend_metal_device_get_type(ggml_backend_dev_t dev) {
     return LM_GGML_BACKEND_DEVICE_TYPE_GPU;
 
     LM_GGML_UNUSED(dev);
 }
 
-static void lm_ggml_backend_metal_device_get_props(lm_ggml_backend_dev_t dev, struct lm_ggml_backend_dev_props * props) {
+static void lm_ggml_backend_metal_device_get_props(ggml_backend_dev_t dev, struct lm_ggml_backend_dev_props * props) {
     props->name        = lm_ggml_backend_metal_device_get_name(dev);
     props->description = lm_ggml_backend_metal_device_get_description(dev);
     props->type        = lm_ggml_backend_metal_device_get_type(dev);
@@ -5037,7 +5037,7 @@ static void lm_ggml_backend_metal_device_get_props(lm_ggml_backend_dev_t dev, st
     };
 }
 
-static lm_ggml_backend_t lm_ggml_backend_metal_device_init(lm_ggml_backend_dev_t dev, const char * params) {
+static lm_ggml_backend_t lm_ggml_backend_metal_device_init(ggml_backend_dev_t dev, const char * params) {
     struct lm_ggml_backend_metal_context * ctx = lm_ggml_metal_init(dev);
     if (ctx == NULL) {
         // LM_GGML_LOG_ERROR("%s: error: failed to allocate context\n", __func__);
@@ -5060,13 +5060,13 @@ static lm_ggml_backend_t lm_ggml_backend_metal_device_init(lm_ggml_backend_dev_t
     LM_GGML_UNUSED(params);
 }
 
-static lm_ggml_backend_buffer_type_t lm_ggml_backend_metal_device_get_buffer_type(lm_ggml_backend_dev_t dev) {
+static lm_ggml_backend_buffer_type_t lm_ggml_backend_metal_device_get_buffer_type(ggml_backend_dev_t dev) {
     return lm_ggml_backend_metal_buffer_type();
 
     LM_GGML_UNUSED(dev);
 }
 
-static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(lm_ggml_backend_dev_t dev, void * ptr, size_t size, size_t max_tensor_size) {
+static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(ggml_backend_dev_t dev, void * ptr, size_t size, size_t max_tensor_size) {
     struct lm_ggml_backend_metal_buffer_context * ctx = calloc(1, sizeof(struct lm_ggml_backend_metal_buffer_context));
 
     ctx->all_data = ptr;
@@ -5152,20 +5152,20 @@ static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(lm_
     return lm_ggml_backend_buffer_init(lm_ggml_backend_metal_buffer_from_ptr_type(), lm_ggml_backend_metal_buffer_i, ctx, size);
 }
 
-static bool lm_ggml_backend_metal_device_supports_op(lm_ggml_backend_dev_t dev, const struct lm_ggml_tensor * op) {
+static bool lm_ggml_backend_metal_device_supports_op(ggml_backend_dev_t dev, const struct lm_ggml_tensor * op) {
     struct lm_ggml_backend_metal_device_context * ctx_dev = dev->context;
 
     return lm_ggml_metal_supports_op(ctx_dev, op);
 }
 
-static bool lm_ggml_backend_metal_device_supports_buft(lm_ggml_backend_dev_t dev, lm_ggml_backend_buffer_type_t buft) {
+static bool lm_ggml_backend_metal_device_supports_buft(ggml_backend_dev_t dev, lm_ggml_backend_buffer_type_t buft) {
     return buft->iface.get_name == lm_ggml_backend_metal_buffer_type_get_name ||
             buft->iface.get_name == lm_ggml_backend_metal_buffer_from_ptr_type_get_name;
 
     LM_GGML_UNUSED(dev);
 }
 
-static bool lm_ggml_backend_metal_device_offload_op(lm_ggml_backend_dev_t dev, const struct lm_ggml_tensor * op) {
+static bool lm_ggml_backend_metal_device_offload_op(ggml_backend_dev_t dev, const struct lm_ggml_tensor * op) {
     return false;
 
     LM_GGML_UNUSED(dev);
@@ -5204,7 +5204,7 @@ static size_t lm_ggml_backend_metal_reg_device_count(lm_ggml_backend_reg_t reg) 
     LM_GGML_UNUSED(reg);
 }
 
-static lm_ggml_backend_dev_t lm_ggml_backend_metal_reg_device_get(lm_ggml_backend_reg_t reg, size_t index) {
+static ggml_backend_dev_t lm_ggml_backend_metal_reg_device_get(lm_ggml_backend_reg_t reg, size_t index) {
     LM_GGML_ASSERT(index == 0);
 
     return &g_lm_ggml_backend_metal_device;
