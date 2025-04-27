@@ -491,13 +491,11 @@ static void * lm_ggml_metal_host_malloc(size_t n) {
 #if TARGET_OS_OSX
     kern_return_t err = vm_allocate((vm_map_t) mach_task_self(), (void *) &data, n, VM_FLAGS_ANYWHERE);
     if (err != KERN_SUCCESS) {
-        LM_GGML_LOG_ERROR("%s: error: vm_allocate failed\n", __func__);
         return NULL;
     }
 #else
     const int result = posix_memalign((void **) &data, sysconf(_SC_PAGESIZE), n);
     if (result != 0) {
-        LM_GGML_LOG_ERROR("%s: error: posix_memalign failed\n", __func__);
         return NULL;
     }
 #endif
@@ -517,7 +515,6 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
     NSString * src = nil;
 
 #if LM_GGML_METAL_EMBED_LIBRARY
-    LM_GGML_LOG_INFO("%s: using embedded metal library\n", __func__);
 
     extern const char lm_ggml_metallib_start[];
     extern const char lm_ggml_metallib_end[];
@@ -543,7 +540,6 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
         NSString * bin_dir = [current_binary stringByDeletingLastPathComponent];
         NSString * default_metallib_path = [NSString pathWithComponents:@[bin_dir, @"default.metallib"]];
         if ([[NSFileManager defaultManager] isReadableFileAtPath:default_metallib_path]) {
-            LM_GGML_LOG_INFO("%s: found '%s'\n", __func__, [default_metallib_path UTF8String]);
             NSDictionary * atts = [[NSFileManager defaultManager] attributesOfItemAtPath:default_metallib_path error:&error];
             if (atts && atts[NSFileType] == NSFileTypeSymbolicLink) {
                 // Optionally, if this is a symlink, try to resolve it.
@@ -556,7 +552,6 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
                     // Link to the resource could not be resolved.
                     default_metallib_path = nil;
                 } else {
-                    LM_GGML_LOG_INFO("%s: symlink resolved '%s'\n", __func__, [default_metallib_path UTF8String]);
                 }
             }
         } else {
@@ -569,20 +564,20 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
     if (path_lib != nil) {
         // pre-compiled library found
         NSURL * libURL = [NSURL fileURLWithPath:path_lib];
-        LM_GGML_LOG_INFO("%s: loading '%s'\n", __func__, [path_lib UTF8String]);
+        // // LM_GGML_LOG_INFO("%s: loading '%s'\n", __func__, [path_lib UTF8String]);
 
         metal_library = [device newLibraryWithURL:libURL error:&error];
         if (error) {
-            LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
+            // LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
             return NULL;
         }
     } else {
-        LM_GGML_LOG_INFO("%s: default.metallib not found, loading from source\n", __func__);
+        // LM_GGML_LOG_INFO("%s: default.metallib not found, loading from source\n", __func__);
 
         NSString * path_source;
         NSString * path_resource = [[NSProcessInfo processInfo].environment objectForKey:@"LM_GGML_METAL_PATH_RESOURCES"];
 
-        LM_GGML_LOG_INFO("%s: LM_GGML_METAL_PATH_RESOURCES = %s\n", __func__, path_resource ? [path_resource UTF8String] : "nil");
+        // LM_GGML_LOG_INFO("%s: LM_GGML_METAL_PATH_RESOURCES = %s\n", __func__, path_resource ? [path_resource UTF8String] : "nil");
 
         if (path_resource) {
             path_source = [path_resource stringByAppendingPathComponent:@"ggml-metal.metal"];
@@ -591,15 +586,15 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
         }
 
         if (path_source == nil) {
-            LM_GGML_LOG_WARN("%s: error: could not use bundle path to find ggml-metal.metal, falling back to trying cwd\n", __func__);
+            // LM_GGML_LOG_WARN("%s: error: could not use bundle path to find ggml-metal.metal, falling back to trying cwd\n", __func__);
             path_source = @"ggml-metal.metal";
         }
 
-        LM_GGML_LOG_INFO("%s: loading '%s'\n", __func__, [path_source UTF8String]);
+        // LM_GGML_LOG_INFO("%s: loading '%s'\n", __func__, [path_source UTF8String]);
 
         src = [NSString stringWithContentsOfFile:path_source encoding:NSUTF8StringEncoding error:&error];
         if (error) {
-            LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
+            // LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
             return NULL;
         }
     }
@@ -625,7 +620,7 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
 
             metal_library = [device newLibraryWithSource:src options:options error:&error];
             if (error) {
-                LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
+                // LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
                 return NULL;
             }
 
@@ -643,13 +638,13 @@ static id<MTLLibrary> lm_ggml_metal_load_library(id<MTLDevice> device, bool use_
 }
 
 static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend_dev_t dev) {
-    LM_GGML_LOG_INFO("%s: allocating\n", __func__);
+    // LM_GGML_LOG_INFO("%s: allocating\n", __func__);
 
 #if TARGET_OS_OSX && !LM_GGML_METAL_NDEBUG
     // Show all the Metal device instances in the system
     NSArray * devices = MTLCopyAllDevices();
     for (id<MTLDevice> device in devices) {
-        LM_GGML_LOG_INFO("%s: found device: %s\n", __func__, [[device name] UTF8String]);
+        // LM_GGML_LOG_INFO("%s: found device: %s\n", __func__, [[device name] UTF8String]);
     }
     [devices release]; // since it was created by a *Copy* C method
 #endif
@@ -659,11 +654,11 @@ static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend
     struct lm_ggml_backend_metal_device_context * ctx_dev = dev->context;
 
     id<MTLDevice> device = lm_ggml_backend_metal_device_acq(ctx_dev);
-    LM_GGML_LOG_INFO("%s: picking default device: %s\n", __func__, [[device name] UTF8String]);
+    // LM_GGML_LOG_INFO("%s: picking default device: %s\n", __func__, [[device name] UTF8String]);
 
     ctx->queue  = [device newCommandQueue];
     if (ctx->queue == nil) {
-        LM_GGML_LOG_ERROR("%s: error: failed to create command queue\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: failed to create command queue\n", __func__);
         return NULL;
     }
 
@@ -675,12 +670,12 @@ static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend
     }
     id<MTLLibrary> metal_library = ctx_dev->mtl_library;
     if (metal_library == nil) {
-        LM_GGML_LOG_ERROR("%s: error: metal library is nil\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: metal library is nil\n", __func__);
         return NULL;
     }
 
     // print MTL GPU family:
-    LM_GGML_LOG_INFO("%s: GPU name:   %s\n", __func__, [[device name] UTF8String]);
+    // LM_GGML_LOG_INFO("%s: GPU name:   %s\n", __func__, [[device name] UTF8String]);
 
     // determine max supported GPU family
     // https://developer.apple.com/metal/Metal-Shading-Language-Specification.pdf
@@ -688,32 +683,32 @@ static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend
     {
         for (int i = MTLGPUFamilyApple1 + 20; i >= MTLGPUFamilyApple1; --i) {
             if ([device supportsFamily:i]) {
-                LM_GGML_LOG_INFO("%s: GPU family: MTLGPUFamilyApple%d  (%d)\n", __func__, i - (int) MTLGPUFamilyApple1 + 1, i);
+                // LM_GGML_LOG_INFO("%s: GPU family: MTLGPUFamilyApple%d  (%d)\n", __func__, i - (int) MTLGPUFamilyApple1 + 1, i);
                 break;
             }
         }
 
         for (int i = MTLGPUFamilyCommon1 + 5; i >= MTLGPUFamilyCommon1; --i) {
             if ([device supportsFamily:i]) {
-                LM_GGML_LOG_INFO("%s: GPU family: MTLGPUFamilyCommon%d (%d)\n", __func__, i - (int) MTLGPUFamilyCommon1 + 1, i);
+                // LM_GGML_LOG_INFO("%s: GPU family: MTLGPUFamilyCommon%d (%d)\n", __func__, i - (int) MTLGPUFamilyCommon1 + 1, i);
                 break;
             }
         }
 
         for (int i = MTLGPUFamilyMetal3_GGML + 5; i >= MTLGPUFamilyMetal3_GGML; --i) {
             if ([device supportsFamily:i]) {
-                LM_GGML_LOG_INFO("%s: GPU family: MTLGPUFamilyMetal%d  (%d)\n", __func__, i - (int) MTLGPUFamilyMetal3_GGML + 3, i);
+                // LM_GGML_LOG_INFO("%s: GPU family: MTLGPUFamilyMetal%d  (%d)\n", __func__, i - (int) MTLGPUFamilyMetal3_GGML + 3, i);
                 break;
             }
         }
     }
 
-    LM_GGML_LOG_INFO("%s: simdgroup reduction   = %s\n", __func__, ctx_dev->has_simdgroup_reduction     ? "true" : "false");
-    LM_GGML_LOG_INFO("%s: simdgroup matrix mul. = %s\n", __func__, ctx_dev->has_simdgroup_mm            ? "true" : "false");
-    LM_GGML_LOG_INFO("%s: has residency sets    = %s\n", __func__, ctx_dev->has_residency_sets          ? "true" : "false");
-    LM_GGML_LOG_INFO("%s: has bfloat            = %s\n", __func__, ctx_dev->has_bfloat                  ? "true" : "false");
-    LM_GGML_LOG_INFO("%s: use bfloat            = %s\n", __func__, ctx_dev->use_bfloat                  ? "true" : "false");
-    LM_GGML_LOG_INFO("%s: hasUnifiedMemory      = %s\n", __func__, ctx_dev->mtl_device.hasUnifiedMemory ? "true" : "false");
+    // LM_GGML_LOG_INFO("%s: simdgroup reduction   = %s\n", __func__, ctx_dev->has_simdgroup_reduction     ? "true" : "false");
+    // LM_GGML_LOG_INFO("%s: simdgroup matrix mul. = %s\n", __func__, ctx_dev->has_simdgroup_mm            ? "true" : "false");
+    // LM_GGML_LOG_INFO("%s: has residency sets    = %s\n", __func__, ctx_dev->has_residency_sets          ? "true" : "false");
+    // LM_GGML_LOG_INFO("%s: has bfloat            = %s\n", __func__, ctx_dev->has_bfloat                  ? "true" : "false");
+    // LM_GGML_LOG_INFO("%s: use bfloat            = %s\n", __func__, ctx_dev->use_bfloat                  ? "true" : "false");
+    // LM_GGML_LOG_INFO("%s: hasUnifiedMemory      = %s\n", __func__, ctx_dev->mtl_device.hasUnifiedMemory ? "true" : "false");
 
     ctx->capture_next_compute = false;
     ctx->capture_started = false;
@@ -727,7 +722,7 @@ static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend
 
 #if TARGET_OS_OSX || (TARGET_OS_IOS && __clang_major__ >= 15)
     if (@available(macOS 10.12, iOS 16.0, *)) {
-        LM_GGML_LOG_INFO("%s: recommendedMaxWorkingSetSize  = %8.2f MB\n", __func__, device.recommendedMaxWorkingSetSize / 1e6);
+        // LM_GGML_LOG_INFO("%s: recommendedMaxWorkingSetSize  = %8.2f MB\n", __func__, device.recommendedMaxWorkingSetSize / 1e6);
     }
 #endif
 
@@ -744,16 +739,16 @@ static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend
             struct lm_ggml_metal_kernel * kernel = &ctx->kernels[e]; \
             id<MTLFunction> metal_function = [metal_library newFunctionWithName:@"kernel_"#name]; \
             kernel->pipeline = [device newComputePipelineStateWithFunction:metal_function error:&error]; \
-            LM_GGML_LOG_DEBUG("%s: loaded %-40s %16p | th_max = %4d | th_width = %4d\n", __func__, "kernel_"#name, (void *) kernel->pipeline, \
+            // LM_GGML_LOG_DEBUG("%s: loaded %-40s %16p | th_max = %4d | th_width = %4d\n", __func__, "kernel_"#name, (void *) kernel->pipeline, \
                     (int) kernel->pipeline.maxTotalThreadsPerThreadgroup, \
                     (int) kernel->pipeline.threadExecutionWidth); \
             [metal_function release]; \
             if (error) { \
-                LM_GGML_LOG_ERROR("%s: error: load pipeline error: %s\n", __func__, [[error description] UTF8String]); \
+                // LM_GGML_LOG_ERROR("%s: error: load pipeline error: %s\n", __func__, [[error description] UTF8String]); \
                 return NULL; \
             } \
         } else { \
-            LM_GGML_LOG_WARN("%s: skipping %-40s (not supported)\n", __func__, "kernel_"#name); \
+            // LM_GGML_LOG_WARN("%s: skipping %-40s (not supported)\n", __func__, "kernel_"#name); \
         }
 
         const bool has_simdgroup_mm        = ctx_dev->has_simdgroup_mm;
@@ -1075,7 +1070,7 @@ static struct lm_ggml_backend_metal_context * lm_ggml_metal_init(lm_ggml_backend
 }
 
 static void lm_ggml_metal_free(struct lm_ggml_backend_metal_context * ctx) {
-    LM_GGML_LOG_INFO("%s: deallocating\n", __func__);
+    // LM_GGML_LOG_INFO("%s: deallocating\n", __func__);
 
     for (int i = 0; i < LM_GGML_METAL_KERNEL_TYPE_COUNT; ++i) {
         [ctx->kernels[i].pipeline release];
@@ -1132,7 +1127,7 @@ static bool lm_ggml_backend_metal_buffer_rset_init(
         NSError * error;
         ctx->rset = [device newResidencySetWithDescriptor:desc error:&error];
         if (error) {
-            LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
+            // LM_GGML_LOG_ERROR("%s: error: %s\n", __func__, [[error description] UTF8String]);
             [desc release];
             return false;
         }
@@ -1176,7 +1171,7 @@ static void lm_ggml_backend_metal_buffer_rset_free(struct lm_ggml_backend_metal_
 // Metal buffer based on the host memory pointer
 //
 static id<MTLBuffer> lm_ggml_metal_get_buffer(struct lm_ggml_tensor * t, size_t * offs) {
-    //LM_GGML_LOG_INFO("%s: data tensor '%16s', offs_data = %8ld, offs_eval = %8ld, offs_cach = %8ld\n", __func__, t->name, offs_data, offs_eval, offs_cach);
+    //// LM_GGML_LOG_INFO("%s: data tensor '%16s', offs_data = %8ld, offs_eval = %8ld, offs_cach = %8ld\n", __func__, t->name, offs_data, offs_eval, offs_cach);
 
     const int64_t tsize = lm_ggml_nbytes(t);
 
@@ -1188,17 +1183,17 @@ static id<MTLBuffer> lm_ggml_metal_get_buffer(struct lm_ggml_tensor * t, size_t 
     for (int i = 0; i < buf_ctx->n_buffers; ++i) {
         const int64_t ioffs = (int64_t) t->data - (int64_t) buf_ctx->buffers[i].data;
 
-        //LM_GGML_LOG_INFO("ioffs = %10ld, tsize = %10ld, sum = %10ld, buf_ctx->buffers[%d].size = %10ld\n", ioffs, tsize, ioffs + tsize, i, buf_ctx->buffers[i].size);
+        //// LM_GGML_LOG_INFO("ioffs = %10ld, tsize = %10ld, sum = %10ld, buf_ctx->buffers[%d].size = %10ld\n", ioffs, tsize, ioffs + tsize, i, buf_ctx->buffers[i].size);
         if (ioffs >= 0 && ioffs + tsize <= (int64_t) buf_ctx->buffers[i].size) {
             *offs = (size_t) ioffs;
 
-            //LM_GGML_LOG_INFO("%s: tensor '%16s', offs = %8ld\n", __func__, t->name, *offs);
+            //// LM_GGML_LOG_INFO("%s: tensor '%16s', offs = %8ld\n", __func__, t->name, *offs);
 
             return buf_ctx->buffers[i].metal;
         }
     }
 
-    LM_GGML_LOG_ERROR("%s: error: tensor '%s' buffer is nil\n", __func__, t->name);
+    // LM_GGML_LOG_ERROR("%s: error: tensor '%s' buffer is nil\n", __func__, t->name);
 
     return nil;
 }
@@ -1389,7 +1384,7 @@ static void lm_ggml_metal_encode_node(
 
     struct lm_ggml_tensor * node = lm_ggml_graph_node(gf, idx);
 
-    //LM_GGML_LOG_INFO("%s: encoding node %3d, op = %8s\n", __func__, idx, lm_ggml_op_name(node->op));
+    //// LM_GGML_LOG_INFO("%s: encoding node %3d, op = %8s\n", __func__, idx, lm_ggml_op_name(node->op));
 
     struct lm_ggml_tensor * src0 = node->src[0];
     struct lm_ggml_tensor * src1 = node->src[1];
@@ -1415,7 +1410,7 @@ static void lm_ggml_metal_encode_node(
     }
 
     if (!lm_ggml_metal_supports_op(ctx_dev, dst)) {
-        LM_GGML_LOG_ERROR("%s: error: unsupported op '%s'\n", __func__, lm_ggml_op_desc(dst));
+        // LM_GGML_LOG_ERROR("%s: error: unsupported op '%s'\n", __func__, lm_ggml_op_desc(dst));
         LM_GGML_ABORT("unsupported op");
     }
 
@@ -1474,17 +1469,17 @@ static void lm_ggml_metal_encode_node(
     id<MTLBuffer> id_dst  = dst  ? lm_ggml_metal_get_buffer(dst,  &offs_dst)  : nil;
 
 #if 0
-    LM_GGML_LOG_INFO("%s: op - %s\n", __func__, lm_ggml_op_name(dst->op));
+    // LM_GGML_LOG_INFO("%s: op - %s\n", __func__, lm_ggml_op_name(dst->op));
     if (src0) {
-        LM_GGML_LOG_INFO("%s: src0 - %4s [%5lld, %5lld, %5lld, %5lld] [%5lld, %5lld, %5lld, %5lld], %d, %s\n", __func__, lm_ggml_type_name(src0t), ne00, ne01, ne02, ne03, nb00, nb01, nb02, nb03,
+        // LM_GGML_LOG_INFO("%s: src0 - %4s [%5lld, %5lld, %5lld, %5lld] [%5lld, %5lld, %5lld, %5lld], %d, %s\n", __func__, lm_ggml_type_name(src0t), ne00, ne01, ne02, ne03, nb00, nb01, nb02, nb03,
                 lm_ggml_is_contiguous(src0), src0->name);
     }
     if (src1) {
-        LM_GGML_LOG_INFO("%s: src1 - %4s [%5lld, %5lld, %5lld, %5lld] [%5lld, %5lld, %5lld, %5lld], %d, %s\n", __func__, lm_ggml_type_name(src1t), ne10, ne11, ne12, ne13, nb10, nb11, nb12, nb13,
+        // LM_GGML_LOG_INFO("%s: src1 - %4s [%5lld, %5lld, %5lld, %5lld] [%5lld, %5lld, %5lld, %5lld], %d, %s\n", __func__, lm_ggml_type_name(src1t), ne10, ne11, ne12, ne13, nb10, nb11, nb12, nb13,
                 lm_ggml_is_contiguous(src1), src1->name);
     }
     if (dst) {
-        LM_GGML_LOG_INFO("%s: dst  - %4s [%5lld, %5lld, %5lld, %5lld] [%5lld, %5lld, %5lld, %5lld], 1, %s\n", __func__, lm_ggml_type_name(dstt), ne0, ne1, ne2, ne3, nb0, nb1, nb2, nb3,
+        // LM_GGML_LOG_INFO("%s: dst  - %4s [%5lld, %5lld, %5lld, %5lld] [%5lld, %5lld, %5lld, %5lld], 1, %s\n", __func__, lm_ggml_type_name(dstt), ne0, ne1, ne2, ne3, nb0, nb1, nb2, nb3,
                 dst->name);
     }
 #endif
@@ -1907,7 +1902,7 @@ static void lm_ggml_metal_encode_node(
                 } break;
                 default:
                 {
-                    LM_GGML_LOG_WARN("%s: node %3d, op = %8s not implemented\n", __func__, idx, lm_ggml_op_name(dst->op));
+                    // LM_GGML_LOG_WARN("%s: node %3d, op = %8s not implemented\n", __func__, idx, lm_ggml_op_name(dst->op));
                     LM_GGML_ABORT("fatal error");
                 }
             } break;
@@ -2734,7 +2729,7 @@ static void lm_ggml_metal_encode_node(
                             } break;
                         default:
                             {
-                                LM_GGML_LOG_ERROR("Asserting on type %d\n", (int)src0t);
+                                // LM_GGML_LOG_ERROR("Asserting on type %d\n", (int)src0t);
                                 LM_GGML_ABORT("not implemented");
                             }
                     };
@@ -3050,7 +3045,7 @@ static void lm_ggml_metal_encode_node(
                             } break;
                         default:
                             {
-                                LM_GGML_LOG_ERROR("Asserting on type %d\n", (int)src2t);
+                                // LM_GGML_LOG_ERROR("Asserting on type %d\n", (int)src2t);
                                 LM_GGML_ABORT("not implemented");
                             }
                     };
@@ -3840,8 +3835,8 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_F16_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
@@ -3857,8 +3852,8 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_BF16_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
@@ -3874,8 +3869,8 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_Q4_0_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
@@ -3891,8 +3886,8 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_Q4_1_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
@@ -3908,8 +3903,8 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_Q5_0_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
@@ -3925,8 +3920,8 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_Q5_1_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
@@ -3942,16 +3937,16 @@ static void lm_ggml_metal_encode_node(
                                     case 256: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_Q8_0_H256].pipeline; break;
                                     default:
                                               {
-                                                  LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                                  LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                                  // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                                  // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                                   LM_GGML_ABORT("add template specialization for this size");
                                               }
                                 }
                             } break;
                         default:
                             {
-                                LM_GGML_LOG_ERROR("unsupported type: %d\n", src1->type);
-                                LM_GGML_LOG_ERROR("add template specialization for this type\n");
+                                // LM_GGML_LOG_ERROR("unsupported type: %d\n", src1->type);
+                                // LM_GGML_LOG_ERROR("add template specialization for this type\n");
                                 LM_GGML_ABORT("add template specialization for this type");
                             }
                     }
@@ -3971,8 +3966,8 @@ static void lm_ggml_metal_encode_node(
                                     case LM_GGML_TYPE_Q8_0: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_VEC_Q8_0_H128].pipeline; break;
                                     default:
                                         {
-                                            LM_GGML_LOG_ERROR("unsupported type: %d\n", src1->type);
-                                            LM_GGML_LOG_ERROR("add template specialization for this type\n");
+                                            // LM_GGML_LOG_ERROR("unsupported type: %d\n", src1->type);
+                                            // LM_GGML_LOG_ERROR("add template specialization for this type\n");
                                             LM_GGML_ABORT("add template specialization for this type");
                                         }
                                 }
@@ -3989,16 +3984,16 @@ static void lm_ggml_metal_encode_node(
                                     case LM_GGML_TYPE_Q8_0: pipeline = ctx->kernels[LM_GGML_METAL_KERNEL_TYPE_FLASH_ATTN_EXT_VEC_Q8_0_H256].pipeline; break;
                                     default:
                                         {
-                                            LM_GGML_LOG_ERROR("unsupported type: %d\n", src1->type);
-                                            LM_GGML_LOG_ERROR("add template specialization for this type\n");
+                                            // LM_GGML_LOG_ERROR("unsupported type: %d\n", src1->type);
+                                            // LM_GGML_LOG_ERROR("add template specialization for this type\n");
                                             LM_GGML_ABORT("add template specialization for this type");
                                         }
                                 }
                             } break;
                         default:
                                   {
-                                      LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
-                                      LM_GGML_LOG_ERROR("add template specialization for this size\n");
+                                      // LM_GGML_LOG_ERROR("unsupported size: %lld\n", ne00);
+                                      // LM_GGML_LOG_ERROR("add template specialization for this size\n");
                                       LM_GGML_ABORT("add template specialization for this size");
                                   }
                     }
@@ -4390,7 +4385,7 @@ static void lm_ggml_metal_encode_node(
             } break;
        default:
             {
-                LM_GGML_LOG_ERROR("%s: error: node %3d, op = %8s not implemented\n", __func__, idx, lm_ggml_op_name(dst->op));
+                // LM_GGML_LOG_ERROR("%s: error: node %3d, op = %8s not implemented\n", __func__, idx, lm_ggml_op_name(dst->op));
                 LM_GGML_ABORT("fatal error");
             }
     }
@@ -4438,7 +4433,7 @@ static enum lm_ggml_status lm_ggml_metal_graph_compute(
 
                 NSError * error = nil;
                 if (![[MTLCaptureManager sharedCaptureManager] startCaptureWithDescriptor:descriptor error:&error]) {
-                    LM_GGML_LOG_ERROR("%s: error: unable to start capture '%s'\n", __func__, [[error localizedDescription] UTF8String]);
+                    // LM_GGML_LOG_ERROR("%s: error: unable to start capture '%s'\n", __func__, [[error localizedDescription] UTF8String]);
                 } else {
                     [ctx->capture_scope beginScope];
                     ctx->capture_started = true;
@@ -4479,9 +4474,9 @@ static enum lm_ggml_status lm_ggml_metal_graph_compute(
 
             MTLCommandBufferStatus status = [command_buffer status];
             if (status != MTLCommandBufferStatusCompleted) {
-                LM_GGML_LOG_INFO("%s: command buffer %d failed with status %lu\n", __func__, n_cb, status);
+                // LM_GGML_LOG_INFO("%s: command buffer %d failed with status %lu\n", __func__, n_cb, status);
                 if (status == MTLCommandBufferStatusError) {
-                    LM_GGML_LOG_INFO("error: %s\n", [[command_buffer error].localizedDescription UTF8String]);
+                    // LM_GGML_LOG_INFO("error: %s\n", [[command_buffer error].localizedDescription UTF8String]);
                 }
 
                 return LM_GGML_STATUS_FAILED;
@@ -4494,9 +4489,9 @@ static enum lm_ggml_status lm_ggml_metal_graph_compute(
 
             MTLCommandBufferStatus status = [command_buffer status];
             if (status != MTLCommandBufferStatusCompleted) {
-                LM_GGML_LOG_INFO("%s: command buffer %d failed with status %lu\n", __func__, i, status);
+                // LM_GGML_LOG_INFO("%s: command buffer %d failed with status %lu\n", __func__, i, status);
                 if (status == MTLCommandBufferStatusError) {
-                    LM_GGML_LOG_INFO("error: %s\n", [[command_buffer error].localizedDescription UTF8String]);
+                    // LM_GGML_LOG_INFO("error: %s\n", [[command_buffer error].localizedDescription UTF8String]);
                 }
 
                 return LM_GGML_STATUS_FAILED;
@@ -4513,7 +4508,7 @@ static enum lm_ggml_status lm_ggml_metal_graph_compute(
             }
 
             if (ctx->abort_callback && ctx->abort_callback(ctx->abort_callback_data)) {
-                LM_GGML_LOG_INFO("%s: command buffer %d aborted", __func__, i);
+                // LM_GGML_LOG_INFO("%s: command buffer %d aborted", __func__, i);
                 return LM_GGML_STATUS_ABORTED;
             }
 
@@ -4618,20 +4613,20 @@ static void lm_ggml_backend_metal_log_allocated_size(id<MTLDevice> device, size_
 #ifndef LM_GGML_METAL_NDEBUG
 #if TARGET_OS_OSX || (TARGET_OS_IOS && __clang_major__ >= 15)
     if (@available(macOS 10.12, iOS 16.0, *)) {
-        LM_GGML_LOG_DEBUG("%s: allocated buffer, size = %8.2f MiB, (%8.2f / %8.2f)\n",
-                __func__,
-                size_aligned / 1024.0 / 1024.0,
-                device.currentAllocatedSize / 1024.0 / 1024.0,
-                device.recommendedMaxWorkingSetSize / 1024.0 / 1024.0);
+        // LM_GGML_LOG_DEBUG("%s: allocated buffer, size = %8.2f MiB, (%8.2f / %8.2f)\n",
+                // __func__,
+                // size_aligned / 1024.0 / 1024.0,
+                // device.currentAllocatedSize / 1024.0 / 1024.0,
+                // device.recommendedMaxWorkingSetSize / 1024.0 / 1024.0);
 
         if (device.currentAllocatedSize > device.recommendedMaxWorkingSetSize) {
-            LM_GGML_LOG_WARN("%s: warning: current allocated size is greater than the recommended max working set size\n", __func__);
+            // LM_GGML_LOG_WARN("%s: warning: current allocated size is greater than the recommended max working set size\n", __func__);
         }
     } else {
-        LM_GGML_LOG_INFO("%s: allocated buffer, size = %8.2f MiB, (%8.2f)\n",
-                __func__,
-                size_aligned / 1024.0 / 1024.0,
-                device.currentAllocatedSize / 1024.0 / 1024.0);
+        // LM_GGML_LOG_INFO("%s: allocated buffer, size = %8.2f MiB, (%8.2f)\n",
+                // __func__,
+                // size_aligned / 1024.0 / 1024.0,
+                // device.currentAllocatedSize / 1024.0 / 1024.0);
     }
 #endif
 #endif
@@ -4671,14 +4666,14 @@ static lm_ggml_backend_buffer_t lm_ggml_backend_metal_buffer_type_alloc_buffer(l
     }
 
     if (size_aligned > 0 && (ctx->all_data == NULL || ctx->buffers[0].metal == nil)) {
-        LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_aligned / 1024.0 / 1024.0);
+        // LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_aligned / 1024.0 / 1024.0);
         free(ctx);
         lm_ggml_backend_metal_device_rel(ctx_dev);
         return NULL;
     }
 
     if (!lm_ggml_backend_metal_buffer_rset_init(ctx, ctx_dev, device)) {
-        LM_GGML_LOG_ERROR("%s: error: failed to initialize residency set\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: failed to initialize residency set\n", __func__);
         free(ctx);
         lm_ggml_backend_metal_device_rel(ctx_dev);
         return NULL;
@@ -4786,7 +4781,7 @@ lm_ggml_backend_buffer_t lm_ggml_backend_metal_buffer_from_ptr(void * data, size
             ctx->buffers[ctx->n_buffers].metal = [device newBufferWithBytesNoCopy:data length:size_aligned options:MTLResourceStorageModeShared deallocator:nil];
 
             if (ctx->buffers[ctx->n_buffers].metal == nil) {
-                LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_aligned / 1024.0 / 1024.0);
+                // LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_aligned / 1024.0 / 1024.0);
                 return false;
             }
         }
@@ -4812,7 +4807,7 @@ lm_ggml_backend_buffer_t lm_ggml_backend_metal_buffer_from_ptr(void * data, size
                 ctx->buffers[ctx->n_buffers].metal = [device newBufferWithBytesNoCopy:(void *) ((uint8_t *) data + i) length:size_step_aligned options:MTLResourceStorageModeShared deallocator:nil];
 
                 if (ctx->buffers[ctx->n_buffers].metal == nil) {
-                    LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_step_aligned / 1024.0 / 1024.0);
+                    // LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_step_aligned / 1024.0 / 1024.0);
                     return false;
                 }
             }
@@ -4820,7 +4815,7 @@ lm_ggml_backend_buffer_t lm_ggml_backend_metal_buffer_from_ptr(void * data, size
             lm_ggml_backend_metal_log_allocated_size(device, size_step_aligned);
 
             if (i + size_step < size) {
-                LM_GGML_LOG_INFO("\n");
+                // LM_GGML_LOG_INFO("\n");
             }
 
             ++ctx->n_buffers;
@@ -4828,7 +4823,7 @@ lm_ggml_backend_buffer_t lm_ggml_backend_metal_buffer_from_ptr(void * data, size
     }
 
     if (!lm_ggml_backend_metal_buffer_rset_init(ctx, ctx_dev, device)) {
-        LM_GGML_LOG_ERROR("%s: error: failed to initialize residency set\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: failed to initialize residency set\n", __func__);
         free(ctx);
         lm_ggml_backend_metal_device_rel(ctx_dev);
         return NULL;
@@ -4868,7 +4863,7 @@ static void lm_ggml_backend_metal_set_n_cb(lm_ggml_backend_t backend, int n_cb) 
         ctx->n_cb = MIN(n_cb, LM_GGML_METAL_MAX_COMMAND_BUFFERS);
 
         if (ctx->n_cb > 2) {
-            LM_GGML_LOG_WARN("%s: n_cb = %d, using n_cb > 2 is not recommended and can degrade the performance in some cases\n", __func__, n_cb);
+            // LM_GGML_LOG_WARN("%s: n_cb = %d, using n_cb > 2 is not recommended and can degrade the performance in some cases\n", __func__, n_cb);
         }
     }
 
@@ -4945,7 +4940,7 @@ lm_ggml_backend_t lm_ggml_backend_metal_init(void) {
 
     struct lm_ggml_backend_metal_context * ctx = lm_ggml_metal_init(dev);
     if (ctx == NULL) {
-        LM_GGML_LOG_ERROR("%s: error: failed to allocate context\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: failed to allocate context\n", __func__);
         return NULL;
     }
 
@@ -5045,7 +5040,7 @@ static void lm_ggml_backend_metal_device_get_props(lm_ggml_backend_dev_t dev, st
 static lm_ggml_backend_t lm_ggml_backend_metal_device_init(lm_ggml_backend_dev_t dev, const char * params) {
     struct lm_ggml_backend_metal_context * ctx = lm_ggml_metal_init(dev);
     if (ctx == NULL) {
-        LM_GGML_LOG_ERROR("%s: error: failed to allocate context\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: failed to allocate context\n", __func__);
         return NULL;
     }
 
@@ -5106,7 +5101,7 @@ static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(lm_
             ctx->buffers[ctx->n_buffers].metal = [device newBufferWithBytesNoCopy:ptr length:size_aligned options:MTLResourceStorageModeShared deallocator:nil];
 
             if (ctx->buffers[ctx->n_buffers].metal == nil) {
-                LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_aligned / 1024.0 / 1024.0);
+                // LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_aligned / 1024.0 / 1024.0);
                 return false;
             }
         }
@@ -5132,7 +5127,7 @@ static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(lm_
                 ctx->buffers[ctx->n_buffers].metal = [device newBufferWithBytesNoCopy:(void *) ((uint8_t *) ptr + i) length:size_step_aligned options:MTLResourceStorageModeShared deallocator:nil];
 
                 if (ctx->buffers[ctx->n_buffers].metal == nil) {
-                    LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_step_aligned / 1024.0 / 1024.0);
+                    // LM_GGML_LOG_ERROR("%s: error: failed to allocate buffer, size = %8.2f MiB\n", __func__, size_step_aligned / 1024.0 / 1024.0);
                     return false;
                 }
             }
@@ -5140,7 +5135,7 @@ static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(lm_
             lm_ggml_backend_metal_log_allocated_size(device, size_step_aligned);
 
             if (i + size_step < size) {
-                LM_GGML_LOG_INFO("\n");
+                // LM_GGML_LOG_INFO("\n");
             }
 
             ++ctx->n_buffers;
@@ -5148,7 +5143,7 @@ static lm_ggml_backend_buffer_t lm_ggml_backend_metal_device_buffer_from_ptr(lm_
     }
 
     if (!lm_ggml_backend_metal_buffer_rset_init(ctx, ctx_dev, device)) {
-        LM_GGML_LOG_ERROR("%s: error: failed to initialize residency set\n", __func__);
+        // LM_GGML_LOG_ERROR("%s: error: failed to initialize residency set\n", __func__);
         free(ctx);
         lm_ggml_backend_metal_device_rel(ctx_dev);
         return NULL;
